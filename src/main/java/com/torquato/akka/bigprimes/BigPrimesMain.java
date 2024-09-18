@@ -1,5 +1,13 @@
 package com.torquato.akka.bigprimes;
 
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ThreadLocalRandom;
+
 import akka.Done;
 import akka.NotUsed;
 import akka.actor.typed.ActorSystem;
@@ -10,22 +18,16 @@ import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import lombok.extern.slf4j.Slf4j;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CompletionStage;
-
 @Slf4j
 public class BigPrimesMain {
 
     public static void main(String[] args) {
-        final Random random = new Random();
+        final Random random = ThreadLocalRandom.current();
+
         final Source<Integer, NotUsed> source = Source.range(0, 9);
 
         final Flow<Integer, BigInteger, NotUsed> convertToBigInteger = Flow.of(Integer.class)
-                .map(i -> new BigInteger(2000, new Random()));
+                .map(i -> new BigInteger(2000, random));
 
         final Flow<BigInteger, BigInteger, NotUsed> generateProbablePrime = Flow.of(BigInteger.class)
                 .map(BigInteger::nextProbablePrime);
