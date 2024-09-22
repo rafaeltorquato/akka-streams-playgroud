@@ -76,8 +76,8 @@ public class BigPrimesMain {
     }
 
     private static CompletableFuture<BigInteger> probablePrimeFuture(BigInteger input) {
-        final CompletableFuture<BigInteger> future = new CompletableFuture<>();
-        return future.completeAsync(input::nextProbablePrime);
+        return new CompletableFuture<BigInteger>()
+                .completeAsync(input::nextProbablePrime);
     }
 
 }
