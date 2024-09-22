@@ -4,8 +4,6 @@ import akka.Done;
 import akka.NotUsed;
 import akka.actor.typed.ActorSystem;
 import akka.actor.typed.javadsl.Behaviors;
-import akka.stream.Attributes;
-import akka.stream.OverflowStrategy;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Keep;
 import akka.stream.javadsl.Sink;
@@ -44,10 +42,7 @@ public class BigPrimesMain {
                 .log("ProbablePrime");
 
         final Flow<BigInteger, BigInteger, NotUsed> generateProbablePrimeParallel = Flow.of(BigInteger.class)
-                .mapAsyncUnordered(AVAILABLE_PROCESSORS, (input) -> {
-                    final CompletableFuture<BigInteger> future = new CompletableFuture<>();
-                    return future.completeAsync(input::nextProbablePrime);
-                })
+                .mapAsyncUnordered(AVAILABLE_PROCESSORS, BigPrimesMain::probablePrimeFuture)
                 .log("ProbablePrime");
 
         final Flow<BigInteger, List<BigInteger>, NotUsed> groupAndSort = Flow.of(BigInteger.class)
@@ -78,6 +73,11 @@ public class BigPrimesMain {
             log.info("Time spent {}ms", millis);
             actorSystem.terminate();
         });
+    }
+
+    private static CompletableFuture<BigInteger> probablePrimeFuture(BigInteger input) {
+        final CompletableFuture<BigInteger> future = new CompletableFuture<>();
+        return future.completeAsync(input::nextProbablePrime);
     }
 
 }
