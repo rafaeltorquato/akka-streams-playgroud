@@ -26,7 +26,7 @@ public class BigPrimesMain {
 
     public static final int AVAILABLE_PROCESSORS = Runtime.getRuntime().availableProcessors();
 
-    public static void main(String[] args) {
+    public static void main(final String[] args) {
         final Instant startTime = Instant.now();
 
         final Random random = ThreadLocalRandom.current();
@@ -69,13 +69,13 @@ public class BigPrimesMain {
                 .run(actorSystem);
 
         completionStage.whenComplete((_, _) -> {
-            long millis = Duration.between(startTime, Instant.now()).toMillis();
-            log.info("Time spent {}ms", millis);
+            final long timeSpentInMillis = Duration.between(startTime, Instant.now()).toMillis();
+            log.info("Time spent {}ms", timeSpentInMillis);
             actorSystem.terminate();
         });
     }
 
-    private static CompletableFuture<BigInteger> probablePrimeFuture(BigInteger input) {
+    private static CompletableFuture<BigInteger> probablePrimeFuture(final BigInteger input) {
         return new CompletableFuture<BigInteger>()
                 .completeAsync(input::nextProbablePrime);
     }
