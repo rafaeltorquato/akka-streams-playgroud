@@ -1,16 +1,77 @@
 package com.torquato.akka.postracker;
 
+import akka.NotUsed;
+import akka.actor.typed.ActorSystem;
+import akka.actor.typed.javadsl.Behaviors;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.Keep;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import lombok.extern.slf4j.Slf4j;
+
+import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
+@Slf4j
 public class PosTrackerMain {
 
+    public static final int AVAILABLE_PROCESSORS = Runtime.getRuntime().availableProcessors();
+
     public static void main(String[] args) {
-        Map<Integer, VehiclePositionMessage> vehicleTrackingMap = new HashMap<>();
-        for (int i = 1; i <=8; i++) {
-            vehicleTrackingMap.put(i, new VehiclePositionMessage(1, new Date(), 0,0));
+
+        final UtilityFunctions util = new UtilityFunctions();
+
+        final Map<Integer, VehiclePositionMessage> vehicleTrackingMap = new HashMap<>();
+        for (int i = 1; i <= 8; i++) {
+            vehicleTrackingMap.put(i, new VehiclePositionMessage(i, new Date(), 0, 0));
         }
+
+        final Source<Integer, NotUsed> source = Source
+                .repeat("Go")
+                .throttle(vehicleTrackingMap.size(), Duration.ofSeconds(10))
+                .mapConcat((_) -> vehicleTrackingMap.keySet())
+                .log("SourceOutput");
+
+        final Flow<Integer, VehiclePositionMessage, NotUsed> getCurrentPosition = Flow
+                .of(Integer.class)
+                .mapAsyncUnordered(AVAILABLE_PROCESSORS, (value) -> new CompletableFuture<VehiclePositionMessage>().completeAsync(() -> util.getVehiclePosition(value)));
+
+        final Flow<VehiclePositionMessage, VehicleSpeed, NotUsed> calculateSpeed = Flow
+                .of(VehiclePositionMessage.class)
+                .map((current) -> {
+                    final var previous = vehicleTrackingMap.get(current.vehicleId());
+                    final VehicleSpeed vehicleSpeed = util.calculateSpeed(current, previous);
+                    vehicleTrackingMap.put(current.vehicleId(), current);
+                    return vehicleSpeed;
+                });
+
+        final Flow<VehicleSpeed, VehicleSpeed, NotUsed> speedFilter = Flow
+                .of(VehicleSpeed.class)
+                .filter((vs) -> vs.speed() > 95);
+
+        final Sink<VehicleSpeed, CompletionStage<VehicleSpeed>> getFirst = Sink
+                .head();
+
+        final ActorSystem<Object> actorSystem = ActorSystem.create(Behaviors.empty(), "PosTracker");
+        final CompletionStage<VehicleSpeed> completionStage = source
+                .async()
+                .via(getCurrentPosition)
+                .async()
+                .via(calculateSpeed)
+                .via(speedFilter)
+                .toMat(getFirst, Keep.right())
+                .run(actorSystem);
+
+        completionStage.whenComplete((vs, _) -> {
+            if (vs != null) {
+                log.info("{} too fast!", vs);
+            }
+            actorSystem.terminate();
+        });
 
         //source - repeat some value every 10 seconds.
 
