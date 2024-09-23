@@ -43,7 +43,7 @@ public class PosTrackerMain {
 
         final Source<Integer, NotUsed> source = Source
                 .repeat("Go")
-                .throttle(vehicleTrackingMap.size(), Duration.ofSeconds(10))
+                .throttle(1, Duration.ofSeconds(5))
                 .mapConcat((_) -> vehicleTrackingMap.keySet())
                 .log("SourceOutput");
 
@@ -81,7 +81,7 @@ public class PosTrackerMain {
         final CompletionStage<VehicleSpeed> completionStage = RunnableGraph.fromGraph(
                         GraphDSL.create(getFirst, (builder, out) -> {
                             builder.from(builder.add(source))
-                                    .via(builder.add(getCurrentPosition.async()))
+                                    .via(builder.add(getCurrentPosition.async()))// parallel
                                     .via(builder.add(calculateSpeed))
                                     .via(builder.add(speedFilter))
                                     .to(out);
